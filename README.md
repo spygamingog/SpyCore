@@ -1,7 +1,7 @@
 # SpyCore
 
 [![Platform](https://img.shields.io/badge/platform-PaperMC%20%7C%20Spigot-blue)](https://papermc.io)
-[![Version](https://img.shields.io/badge/minecraft-1.21.1-green)](https://www.minecraft.net)
+[![Version](https://img.shields.io/badge/minecraft-1.21.11-green)](https://www.minecraft.net)
 
 **SpyCore** is a modern, lightweight world and server management framework for Minecraft networks. It provides an organized way to manage worlds using a container-based folder structure, while offering high-performance world lifecycle handling.
 
