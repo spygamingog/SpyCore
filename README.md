@@ -15,6 +15,8 @@
 - **🔍 Metadata System**: Tag and search worlds using flexible metadata.
 - **🛡️ Safe Arrival**: Advanced algorithm to find the nearest safe spot for player teleports.
 
+![SpyCore World directory structure](https://cdn.modrinth.com/data/cached_images/c2f907c8751f09a256634c616c31d7c016adaa60.gif)
+
 ## 🛠️ Installation
 
 1. Download the latest `SpyCore.jar`.
