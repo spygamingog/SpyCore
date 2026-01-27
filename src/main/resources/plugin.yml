@@ -1,0 +1,14 @@
+name: SpyCore
+version: 1.0.3
+main: com.spygamingog.spycore.SpyCore
+api-version: '1.21'
+author: SpyGamingOG
+description: The ultimate foundation for your Minecraft network.
+commands:
+  spy:
+    description: Main command for SpyCore
+    usage: /spy <subcommand>
+permissions:
+  spy.admin:
+    description: Admin permission for SpyCore
+    default: op
