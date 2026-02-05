@@ -4,7 +4,7 @@
   <groupId>com.spygamingog</groupId>
   <artifactId>spycore</artifactId>
   <name>SpyCore</name>
-  <version>1.0.4</version>
+  <version>1.0.5</version>
   <build>
     <defaultGoal>clean package</defaultGoal>
     <resources>
@@ -65,3 +65,4 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 </project>
+
