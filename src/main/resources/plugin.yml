@@ -1,0 +1,26 @@
+name: SpyCore
+version: 1.0.6
+main: com.spygamingog.spycore.SpyCore
+api-version: '1.21'
+author: SpyGamingOG
+description: The ultimate foundation for your Minecraft network.
+commands:
+  spy:
+    description: Main command for SpyCore
+    usage: /spy <subcommand>
+permissions:
+  spy.admin:
+    description: Admin permission for SpyCore
+    default: op
+  spy.tp:
+    description: Permission to use /spy tp
+    default: op
+  spy.world.modify:
+    description: Permission to modify world settings
+    default: op
+  spy.create:
+    description: Permission to create worlds
+    default: op
+  spy.delete:
+    description: Permission to delete worlds
+    default: op
