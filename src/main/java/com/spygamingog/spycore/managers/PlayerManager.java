@@ -154,15 +154,15 @@ public class PlayerManager implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onWorldChange(PlayerChangedWorldEvent event) {
-        // Double check inventory loading on world change to catch any teleports that didn't trigger TeleportEvent properly
-        // or cases where the world was changed via other means
+        // Double check inventory loading on world change only when crossing different world groups
         Player player = event.getPlayer();
+        String fromGroup = getGroupName(event.getFrom().getName());
         String currentWorld = player.getWorld().getName();
         String currentGroup = getGroupName(currentWorld);
         
-        // We don't save here because the player is already in the new world (too late to save to old group)
-        // TeleportEvent handles the save. This is just a safety load.
-        loadInventory(player, currentWorld);
+        if (!fromGroup.equalsIgnoreCase(currentGroup)) {
+            loadInventory(player, currentWorld);
+        }
     }
 
     @EventHandler
@@ -413,15 +413,14 @@ public class PlayerManager implements Listener {
 
         // Use alias for consistency
         String alias = plugin.getWorldManager().getAliasForWorld(world);
+        if (alias == null) alias = world.getName();
         
         // Skip tracking if they are in the lobby or a world that isn't part of a group we care about
         if (alias.equalsIgnoreCase("lobby")) return;
 
-        String baseName = getGroupName(alias);
-
         PlayerProfile profile = getProfile(player.getUniqueId());
         if (profile != null) {
-            profile.setLastLocation(baseName, location);
+            profile.setLastLocation(alias, location);
         }
     }
 

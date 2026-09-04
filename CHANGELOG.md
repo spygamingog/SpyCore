@@ -2,6 +2,14 @@
 
 All notable changes to the SpyCore project will be documented in this file.
 
+## [1.1.1] - 2026-09-05
+
+### Fixed
+- **Teleport Dimension Bounce / Infinite Toggle**: Fixed bug where repeatedly executing `/spy world tp <world>` ping-ponged the player between Overworld and Nether. Teleportation now strictly validates that destination coordinates match the requested target world.
+- **Per-World Location Memory**: Updated `PlayerManager#trackLocation` to store last player positions keyed by specific world alias rather than world group base name, preventing linked Nether/End coordinates from overwriting Overworld locations.
+- **Hardcoded Gamemode Removal**: Removed hardcoded `setGameMode(SURVIVAL)` in `/spy world tp` and `/spy tp`, preserving the player's active gamemode (Creative, Spectator, Adventure) across teleports.
+- **Cross-Group Inventory Load Guard**: Restricted `onWorldChange` inventory reloading to actual cross-group transitions, preventing in-memory player state from being overwritten when traveling between linked dimensions in the same set.
+
 ## [1.1.0] - 2026-09-04
 
 ### Added

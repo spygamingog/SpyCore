@@ -30,7 +30,7 @@ It also comes with built-in world hibernation to save RAM, fast template cloning
 
 - **Server**: Paper or Purpur 1.21+ (Java 21 or newer required).
 - **Setup**:
-  1. Download the latest `spycore-1.1.0.jar` from Releases.
+  1. Download the latest `spycore-1.1.1.jar` from Releases.
   2. Put the `.jar` into your server's `plugins/` directory.
   3. Restart your server. Existing worlds in the server root will be detected and registered automatically.
 
@@ -97,7 +97,7 @@ If you are developing plugins on top of SpyCore, add the dependency to your `pom
 <dependency>
     <groupId>com.spygamingog</groupId>
     <artifactId>spycore</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <scope>provided</scope>
 </dependency>
 ```

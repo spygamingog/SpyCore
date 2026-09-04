@@ -25,7 +25,7 @@ SpyCore replaces standard monolithic world systems with a **Virtual File System 
   - **SpyNetherPortals**: Enables dimension portal routing across custom VFS containers.
 
 ### Installation
-1. Place `spycore-1.1.0.jar` into your server's `plugins/` directory.
+1. Place `spycore-1.1.1.jar` into your server's `plugins/` directory.
 2. Start or restart your server.
 3. SpyCore will automatically scan for existing root worlds and create the `plugins/SpyCore/` directory.
 
@@ -203,7 +203,7 @@ Add SpyCore to your plugin's `pom.xml`:
 <dependency>
     <groupId>com.spygamingog</groupId>
     <artifactId>spycore</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <scope>provided</scope>
 </dependency>
 ```

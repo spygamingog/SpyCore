@@ -466,14 +466,13 @@ public class SpyCommand implements CommandExecutor, TabCompleter {
                              if (profile != null) {
                                  String wAlias = plugin.getWorldManager().getAliasForWorld(targetWorld);
                                  Location last = profile.getLastLocation(wAlias);
-                                 if (last != null && last.getWorld() != null) {
+                                 if (last != null && last.getWorld() != null && last.getWorld().equals(targetWorld)) {
                                      targetLoc = last;
                                  }
                              }
                         } catch (Exception ignored) {}
 
                         targetPlayer.teleport(targetLoc);
-                        targetPlayer.setGameMode(org.bukkit.GameMode.SURVIVAL);
                         targetPlayer.sendMessage("§aTeleported to world " + targetWorld.getName());
                     }
                     sender.sendMessage("§aTeleported " + targets.size() + " player(s) to " + targetWorld.getName());
