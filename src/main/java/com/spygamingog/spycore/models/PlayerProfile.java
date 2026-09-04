@@ -1,18 +1,31 @@
 package com.spygamingog.spycore.models;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import org.bukkit.Location;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-@Data
-@AllArgsConstructor
 public class PlayerProfile {
     private final UUID uuid;
     private final String name;
     private final Map<String, Object> data = new HashMap<>();
+
+    public PlayerProfile(UUID uuid, String name) {
+        this.uuid = uuid;
+        this.name = name;
+    }
+
+    public UUID getUuid() {
+        return uuid;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public Map<String, Object> getData() {
+        return data;
+    }
 
     public void setData(String key, Object value) {
         data.put(key, value);
@@ -55,14 +68,13 @@ public class PlayerProfile {
             org.bukkit.World world = org.bukkit.Bukkit.getWorld(worldName);
             if (world == null) return null;
             
-            return new Location(
-                world,
-                (double) map.get("x"),
-                (double) map.get("y"),
-                (double) map.get("z"),
-                ((Double) map.getOrDefault("yaw", 0.0)).floatValue(),
-                ((Double) map.getOrDefault("pitch", 0.0)).floatValue()
-            );
+            double x = ((Number) map.getOrDefault("x", 0.0)).doubleValue();
+            double y = ((Number) map.getOrDefault("y", 64.0)).doubleValue();
+            double z = ((Number) map.getOrDefault("z", 0.0)).doubleValue();
+            float yaw = ((Number) map.getOrDefault("yaw", 0.0)).floatValue();
+            float pitch = ((Number) map.getOrDefault("pitch", 0.0)).floatValue();
+
+            return new Location(world, x, y, z, yaw, pitch);
         }
         
         return null;

@@ -6,7 +6,6 @@ import com.spygamingog.spycore.api.events.SpyWorldLoadEvent;
 import com.spygamingog.spycore.api.events.SpyWorldUnloadEvent;
 import com.spygamingog.spycore.generators.LazyTemplateGenerator;
 import com.spygamingog.spycore.generators.VoidGenerator;
-import lombok.Getter;
 import org.apache.commons.io.FileUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -37,7 +36,6 @@ public class WorldManager {
     private final Object configLock = new Object();
     
     // Key: Alias (e.g., "DesertMap"), Value: Full Path (e.g., "spycore-worlds/Bedwars/Solo/DesertMap")
-    @Getter
     private final Map<String, String> worldAliases = new ConcurrentHashMap<>();
     
     // Key: Full Path, Value: Last access time
@@ -47,8 +45,15 @@ public class WorldManager {
     private final Map<String, Set<String>> linkedWorlds = new ConcurrentHashMap<>();
 
     // Worlds that should never hibernate
-    @Getter
     private final Set<String> hibernationWhitelist = ConcurrentHashMap.newKeySet();
+
+    public Map<String, String> getWorldAliases() {
+        return worldAliases;
+    }
+
+    public Set<String> getHibernationWhitelist() {
+        return hibernationWhitelist;
+    }
 
     public WorldManager(SpyCore plugin) {
         this.plugin = plugin;
@@ -108,6 +113,8 @@ public class WorldManager {
     }
 
     public void loadWorlds() {
+        discoverWorlds();
+        
         synchronized (configLock) {
             if (worldsConfig.getConfigurationSection("worlds") == null) return;
 
@@ -131,6 +138,106 @@ public class WorldManager {
                         applyWorldSettings(world, worldName);
                     }
                 }
+            }
+        }
+    }
+
+    private void discoverWorlds() {
+        plugin.getLogger().info("VFS: Starting recursive world discovery...");
+        
+        // 1. Discover in root (Server World Container)
+        discoverInFolder(plugin.getServer().getWorldContainer(), null);
+        
+        // 2. Discover in spycore-worlds
+        if (containersFolder.exists()) {
+            discoverInFolder(containersFolder, "");
+        }
+        
+        plugin.getLogger().info("VFS: World discovery complete. Total worlds indexed: " + worldAliases.size());
+    }
+
+    private void discoverInFolder(File folder, String currentContainer) {
+        File[] files = folder.listFiles();
+        if (files == null) return;
+
+        for (File file : files) {
+            if (!file.isDirectory()) continue;
+
+            // Check if it's a world folder (contains level.dat)
+            if (new File(file, "level.dat").exists()) {
+                String worldName = file.getName();
+                String container = currentContainer;
+                
+                // Avoid infinite recursion or re-scanning the containers folder itself if we are in root
+                if (currentContainer == null && worldName.equalsIgnoreCase("spycore-worlds")) continue;
+                
+                // Register found world if not already known
+                registerDiscoveredWorld(container, worldName);
+            } else {
+                // If not a world, recurse into it to find nested worlds
+                String nextContainer;
+                if (currentContainer == null) {
+                    // We don't want to treat every root folder as a potential container parent
+                    // Only recurse into specific folders if needed, or skip standard root folders
+                    // However, user asked for "anywhere root or in spycore-worlds or from nested folder"
+                    // So we will recurse, but avoid standard server folders like plugins, logs, etc.
+                    if (isStandardServerFolder(file.getName())) continue;
+                    nextContainer = file.getName();
+                } else {
+                    nextContainer = currentContainer.isEmpty() ? file.getName() : currentContainer + "/" + file.getName();
+                }
+                
+                discoverInFolder(file, nextContainer);
+            }
+        }
+    }
+
+    private boolean isStandardServerFolder(String name) {
+        return name.equalsIgnoreCase("plugins") || 
+               name.equalsIgnoreCase("logs") || 
+               name.equalsIgnoreCase("crash-reports") || 
+               name.equalsIgnoreCase("libraries") || 
+               name.equalsIgnoreCase("versions") || 
+               name.equalsIgnoreCase("config") || 
+               name.equalsIgnoreCase("cache") ||
+               name.equalsIgnoreCase("debug") ||
+               name.equalsIgnoreCase(".idea") ||
+               name.equalsIgnoreCase(".vscode") ||
+               name.equalsIgnoreCase("target") ||
+               name.equalsIgnoreCase("src") ||
+               name.equalsIgnoreCase("maven-archiver") ||
+               name.equalsIgnoreCase(".git");
+    }
+
+    private void registerDiscoveredWorld(String container, String worldName) {
+        String safeContainer = (container == null || container.isEmpty()) ? "root" : container;
+        String key = safeContainer.replace(".", "_") + "_" + worldName.replace(".", "_");
+        
+        String fullPath = (container == null || container.isEmpty() || container.equalsIgnoreCase("root")) 
+                ? worldName 
+                : "spycore-worlds/" + container + "/" + worldName;
+
+        synchronized (configLock) {
+            if (!worldsConfig.contains("worlds." + key)) {
+                plugin.getLogger().info("VFS: Discovered new world: " + fullPath + " (Container: " + safeContainer + ")");
+                
+                // Add to config with default settings
+                worldsConfig.set("worlds." + key + ".container", safeContainer);
+                worldsConfig.set("worlds." + key + ".name", worldName);
+                worldsConfig.set("worlds." + key + ".hibernate", false); // Load immediately by default
+                worldsConfig.set("worlds." + key + ".environment", World.Environment.NORMAL.name());
+                worldsConfig.set("worlds." + key + ".superflat", false);
+                
+                try {
+                    worldsConfig.save(worldsConfigFile);
+                } catch (IOException e) {
+                    plugin.getLogger().log(Level.SEVERE, "Could not save discovered world to config: " + worldName, e);
+                }
+            }
+            
+            // Ensure it's in the alias map
+            if (!worldAliases.containsKey(worldName)) {
+                worldAliases.put(worldName, fullPath);
             }
         }
     }
@@ -245,6 +352,20 @@ public class WorldManager {
 
         worldAliases.put(worldName, fullPath);
         
+        // Remove uid.dat if it exists to avoid UUID conflicts before loading
+        File worldFolder = (container == null || container.isEmpty() || container.equalsIgnoreCase("root")) 
+                ? new File(plugin.getServer().getWorldContainer(), worldName) 
+                : new File(containersFolder, container.replace("/", File.separator) + File.separator + worldName);
+        
+        File uidFile = new File(worldFolder, "uid.dat");
+        if (uidFile.exists()) {
+            if (uidFile.delete()) {
+                plugin.getLogger().info("VFS: Deleted duplicate uid.dat for world: " + fullPath);
+            } else {
+                plugin.getLogger().warning("VFS: Failed to delete duplicate uid.dat for world: " + fullPath);
+            }
+        }
+
         // Use provided environment or try to get from config
         World.Environment finalEnvironment = environment;
         boolean finalSuperflat = false;
@@ -399,7 +520,7 @@ public class WorldManager {
         return true;
     }
 
-    private String getAliasFromPath(String fullPath) {
+    public String getAliasFromPath(String fullPath) {
         if (fullPath.startsWith("spycore-worlds/")) {
             String path = fullPath.replace("spycore-worlds/", "");
             int lastSlash = path.lastIndexOf("/");
@@ -411,7 +532,7 @@ public class WorldManager {
         return fullPath;
     }
 
-    private String getContainerFromPath(String fullPath) {
+    public String getContainerFromPath(String fullPath) {
         if (!fullPath.startsWith("spycore-worlds/")) return "root";
         String relative = fullPath.replace("spycore-worlds/", "");
         int lastSlash = relative.lastIndexOf("/");

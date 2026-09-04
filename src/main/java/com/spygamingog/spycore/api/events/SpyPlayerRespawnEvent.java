@@ -1,7 +1,5 @@
 package com.spygamingog.spycore.api.events;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -13,8 +11,6 @@ import org.jetbrains.annotations.NotNull;
  * Called when SpyCore determines a respawn location for a player.
  * Other plugins can use this to override where players spawn after death.
  */
-@Getter
-@Setter
 public class SpyPlayerRespawnEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
 
@@ -27,6 +23,26 @@ public class SpyPlayerRespawnEvent extends Event {
         this.player = player;
         this.deathWorld = deathWorld;
         this.targetBaseWorld = targetBaseWorld;
+        this.respawnLocation = respawnLocation;
+    }
+
+    public Player getPlayer() {
+        return player;
+    }
+
+    public World getDeathWorld() {
+        return deathWorld;
+    }
+
+    public World getTargetBaseWorld() {
+        return targetBaseWorld;
+    }
+
+    public Location getRespawnLocation() {
+        return respawnLocation;
+    }
+
+    public void setRespawnLocation(Location respawnLocation) {
         this.respawnLocation = respawnLocation;
     }
 

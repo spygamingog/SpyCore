@@ -1,17 +1,16 @@
 package com.spygamingog.spycore.managers;
 
 import com.spygamingog.spycore.SpyCore;
-import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
@@ -38,12 +37,13 @@ public class MetadataManager {
         metadataConfig = YamlConfiguration.loadConfiguration(metadataFile);
         
         if (metadataConfig.getConfigurationSection("worlds") != null) {
-            for (String worldPath : metadataConfig.getConfigurationSection("worlds").getKeys(false)) {
+            for (String worldKey : metadataConfig.getConfigurationSection("worlds").getKeys(false)) {
                 Map<String, String> tags = new HashMap<>();
-                for (String tag : metadataConfig.getConfigurationSection("worlds." + worldPath).getKeys(false)) {
-                    tags.put(tag, metadataConfig.getString("worlds." + worldPath + "." + tag));
+                for (String tag : metadataConfig.getConfigurationSection("worlds." + worldKey).getKeys(false)) {
+                    tags.put(tag, metadataConfig.getString("worlds." + worldKey + "." + tag));
                 }
-                worldMetadata.put(worldPath.replace("__", "/"), tags); // Convert back from safe YAML keys
+                String originalPath = fromSafePath(worldKey);
+                worldMetadata.put(originalPath, tags);
             }
         }
     }
@@ -75,16 +75,30 @@ public class MetadataManager {
                             .allMatch(tag -> worldTags.containsKey(tag.getKey()) && worldTags.get(tag.getKey()).equalsIgnoreCase(tag.getValue()));
                 })
                 .map(entry -> plugin.getWorldManager().getWorld(entry.getKey().substring(entry.getKey().lastIndexOf("/") + 1)))
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
     private void saveMetadata(String worldPath, String key, String value) {
-        String safePath = worldPath.replace("/", "__").replace(".", "_");
+        String safePath = toSafePath(worldPath);
         metadataConfig.set("worlds." + safePath + "." + key, value);
         try {
             metadataConfig.save(metadataFile);
         } catch (IOException e) {
             plugin.getLogger().log(Level.SEVERE, "Could not save metadata.yml", e);
         }
+    }
+
+    private String toSafePath(String worldPath) {
+        return worldPath.replace("/", "__slash__").replace(".", "__dot__");
+    }
+
+    private String fromSafePath(String safePath) {
+        String restored = safePath.replace("__slash__", "/").replace("__dot__", ".");
+        // Backward compatibility for legacy "__" separator
+        if (restored.contains("__")) {
+            restored = restored.replace("__", "/");
+        }
+        return restored;
     }
 }

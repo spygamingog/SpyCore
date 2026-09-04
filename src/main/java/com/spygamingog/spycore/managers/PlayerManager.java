@@ -5,7 +5,6 @@ import com.spygamingog.spycore.api.DataService;
 import com.spygamingog.spycore.api.SpyAPI;
 import com.spygamingog.spycore.api.events.SpyPlayerRespawnEvent;
 import com.spygamingog.spycore.models.PlayerProfile;
-import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -75,9 +74,9 @@ public class PlayerManager implements Listener {
             plugin.getLogger().info("Redirecting respawn for " + player.getName() + " from " + deathWorldName + " to " + targetWorld.getName());
         }
 
-        // If respawning in a different world group, save/load inventory
+        // If respawning in a different world group, load the target world group's inventory.
+        // Do NOT save the current inventory because the player died (items dropped/cleared on death).
         if (!getGroupName(event.getRespawnLocation().getWorld().getName()).equals(baseName)) {
-            saveInventory(player, deathWorldName);
             loadInventory(player, event.getRespawnLocation().getWorld().getName());
         }
     }
@@ -196,21 +195,59 @@ public class PlayerManager implements Listener {
     }
 
     public void saveInventory(Player player, String worldName) {
+        // If SpyInventories is enabled, let it handle inventory management completely
+        if (Bukkit.getPluginManager().isPluginEnabled("SpyInventories")) {
+            return;
+        }
+
         if (player.getGameMode() == org.bukkit.GameMode.SPECTATOR) return; // Don't save spectator inventory
+
+        World world = Bukkit.getWorld(worldName);
+        String alias = world != null ? plugin.getWorldManager().getAliasForWorld(world) : worldName;
+        String lowerAlias = alias.toLowerCase();
+
+        // EXCLUSION CHECK - Now uses alias
+        if (lowerAlias.contains("match_") || lowerAlias.contains("temp_")) {
+            return;
+        }
 
         PlayerProfile profile = getProfile(player.getUniqueId());
         if (profile == null) return;
 
-        // Use alias for consistency
-        World world = Bukkit.getWorld(worldName);
-        String alias = world != null ? plugin.getWorldManager().getAliasForWorld(world) : worldName;
         String group = getGroupName(alias);
         
+        // Clone ItemStacks and state synchronously on the main thread to ensure async thread safety
+        org.bukkit.inventory.ItemStack[] rawInv = player.getInventory().getContents();
+        org.bukkit.inventory.ItemStack[] rawArmor = player.getInventory().getArmorContents();
+        org.bukkit.inventory.ItemStack[] rawEnder = player.getEnderChest().getContents();
+
+        org.bukkit.inventory.ItemStack[] clonedInv = new org.bukkit.inventory.ItemStack[rawInv.length];
+        for (int i = 0; i < rawInv.length; i++) {
+            clonedInv[i] = rawInv[i] != null ? rawInv[i].clone() : null;
+        }
+
+        org.bukkit.inventory.ItemStack[] clonedArmor = new org.bukkit.inventory.ItemStack[rawArmor.length];
+        for (int i = 0; i < rawArmor.length; i++) {
+            clonedArmor[i] = rawArmor[i] != null ? rawArmor[i].clone() : null;
+        }
+
+        org.bukkit.inventory.ItemStack[] clonedEnder = new org.bukkit.inventory.ItemStack[rawEnder.length];
+        for (int i = 0; i < rawEnder.length; i++) {
+            clonedEnder[i] = rawEnder[i] != null ? rawEnder[i].clone() : null;
+        }
+
+        double health = Math.max(1.0, player.getHealth());
+        int food = player.getFoodLevel();
+        int level = player.getLevel();
+        float exp = player.getExp();
+        String gameModeName = player.getGameMode().name();
+        java.util.List<PotionEffect> effects = new java.util.ArrayList<>(player.getActivePotionEffects());
+
         // Update in-memory profile
-        profile.setInventory(group, player.getInventory().getContents());
-        profile.setArmor(group, player.getInventory().getArmorContents());
-        profile.setEnderChest(group, player.getEnderChest().getContents());
-        profile.setStats(group, player.getHealth(), player.getFoodLevel(), player.getLevel(), player.getExp());
+        profile.setInventory(group, clonedInv);
+        profile.setArmor(group, clonedArmor);
+        profile.setEnderChest(group, clonedEnder);
+        profile.setStats(group, health, food, level, exp);
         
         // Save to group-specific file
         File playerDir = new File(plugin.getDataFolder(), "players" + File.separator + player.getUniqueId());
@@ -220,33 +257,55 @@ public class PlayerManager implements Listener {
         File groupFile = new File(playerDir, fileName);
         FileConfiguration config = YamlConfiguration.loadConfiguration(groupFile);
         
-        config.set("inventory", player.getInventory().getContents());
-        config.set("armor", player.getInventory().getArmorContents());
-        config.set("enderchest", player.getEnderChest().getContents());
-        config.set("health", Math.max(1.0, player.getHealth()));
-        config.set("food", player.getFoodLevel());
-        config.set("level", player.getLevel());
-        config.set("exp", player.getExp());
-        config.set("gamemode", player.getGameMode().name());
-        config.set("potion_effects", player.getActivePotionEffects());
+        config.set("inventory", clonedInv);
+        config.set("armor", clonedArmor);
+        config.set("enderchest", clonedEnder);
+        config.set("health", health);
+        config.set("food", food);
+        config.set("level", level);
+        config.set("exp", exp);
+        config.set("gamemode", gameModeName);
+        config.set("potion_effects", effects);
         
         try {
-            config.save(groupFile);
-            plugin.getLogger().info("Saved inventory for " + player.getName() + " in group " + group + " (File: " + fileName + ")");
-        } catch (IOException e) {
-            plugin.getLogger().severe("Could not save inventory for " + player.getName() + " in group " + group + ": " + e.getMessage());
+            // Save asynchronously to prevent server thread blocking
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                try {
+                    config.save(groupFile);
+                } catch (IOException e) {
+                    plugin.getLogger().severe("Could not save inventory for " + player.getName() + " in group " + group + ": " + e.getMessage());
+                }
+            });
+        } catch (Exception e) {
+            // Fallback to synchronous if scheduler is not available (e.g. shutdown)
+            try {
+                config.save(groupFile);
+            } catch (IOException ex) {
+                plugin.getLogger().severe("Could not save inventory for " + player.getName() + " in group " + group + ": " + ex.getMessage());
+            }
         }
     }
 
     public void loadInventory(Player player, String worldName) {
+        // If SpyInventories is enabled, let it handle inventory management completely
+        if (Bukkit.getPluginManager().isPluginEnabled("SpyInventories")) {
+            return;
+        }
+
         if (player.getGameMode() == org.bukkit.GameMode.SPECTATOR) return; // Don't override spectator inventory
+
+        World world = Bukkit.getWorld(worldName);
+        String alias = world != null ? plugin.getWorldManager().getAliasForWorld(world) : worldName;
+        String lowerAlias = alias.toLowerCase();
+
+        // EXCLUSION CHECK - Now uses alias
+        if (lowerAlias.contains("match_") || lowerAlias.contains("temp_")) {
+            return;
+        }
 
         PlayerProfile profile = getProfile(player.getUniqueId());
         if (profile == null) return;
 
-        // Use alias for consistency
-        World world = Bukkit.getWorld(worldName);
-        String alias = world != null ? plugin.getWorldManager().getAliasForWorld(world) : worldName;
         String group = getGroupName(alias);
         
         // Load from group-specific file
@@ -255,10 +314,19 @@ public class PlayerManager implements Listener {
         File groupFile = new File(playerDir, fileName);
         
         if (!groupFile.exists()) {
+            // No saved data for this group. 
+            // If SpyInventories is present, we let it handle the fallback/default state
+            // to avoid conflicting clears.
+            if (Bukkit.getPluginManager().isPluginEnabled("SpyInventories")) {
+                plugin.getLogger().info("No SpyCore inventory found for " + player.getName() + " in group " + group + ". Deferring to SpyInventories.");
+                return;
+            }
+
             // No saved data for this group, reset to defaults
             player.getInventory().clear();
             player.getEnderChest().clear();
-            player.setHealth(20.0);
+            double maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+            player.setHealth(maxHealth);
             player.setFoodLevel(20);
             player.setLevel(0);
             player.setExp(0);
@@ -304,7 +372,8 @@ public class PlayerManager implements Listener {
         }
 
         double health = ((Number) config.get("health", 20.0)).doubleValue();
-        player.setHealth(Math.max(1.0, health)); // Ensure they don't die immediately on load
+        double maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+        player.setHealth(Math.min(maxHealth, Math.max(1.0, health))); // Ensure they don't die immediately on load and don't exceed max health
         player.setFoodLevel(((Number) config.get("food", 20)).intValue());
         player.setLevel(((Number) config.get("level", 0)).intValue());
         player.setExp(((Number) config.get("exp", 0.0f)).floatValue());
@@ -357,13 +426,23 @@ public class PlayerManager implements Listener {
     }
 
     public void shutdown() {
-        DataService dataService = plugin.getServiceManager().getService(DataService.class);
-        if (dataService != null) {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                saveInventory(player, player.getWorld().getName());
-            }
-            for (PlayerProfile profile : profiles.values()) {
-                dataService.save("profiles." + profile.getUuid(), profile.getData());
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            trackLocation(player, player.getLocation());
+            saveInventory(player, player.getWorld().getName());
+
+            PlayerProfile profile = getProfile(player.getUniqueId());
+            if (profile != null) {
+                File playerDir = new File(plugin.getDataFolder(), "players" + File.separator + player.getUniqueId());
+                if (!playerDir.exists()) playerDir.mkdirs();
+
+                File profileFile = new File(playerDir, "profile.yml");
+                FileConfiguration config = YamlConfiguration.loadConfiguration(profileFile);
+                config.set("last_locations", profile.getData().get("last_locations"));
+                try {
+                    config.save(profileFile);
+                } catch (IOException e) {
+                    plugin.getLogger().severe("Could not save profile on shutdown for " + player.getName() + ": " + e.getMessage());
+                }
             }
         }
         profiles.clear();

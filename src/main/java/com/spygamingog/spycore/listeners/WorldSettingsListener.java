@@ -2,10 +2,9 @@ package com.spygamingog.spycore.listeners;
 
 import com.spygamingog.spycore.SpyCore;
 import com.spygamingog.spycore.managers.WorldManager;
-import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -15,39 +14,16 @@ import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
-
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import org.bukkit.projectiles.ProjectileSource;
 
 public class WorldSettingsListener implements Listener {
     private final SpyCore plugin;
     private final WorldManager worldManager;
-    private final Set<UUID> pendingSpawnSetting = new HashSet<>();
 
     public WorldSettingsListener(SpyCore plugin) {
         this.plugin = plugin;
         this.worldManager = plugin.getWorldManager();
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onPlayerMove(PlayerMoveEvent event) {
-        Player player = event.getPlayer();
-        World world = player.getWorld();
-        
-        // Check if player is in a world that needs spawn setting
-        if (pendingSpawnSetting.contains(player.getUniqueId())) {
-            Block block = player.getLocation().getBlock();
-            
-            // If player is in a safe spot (ground is solid/water and head/foot are air)
-            if (worldManager.isSafe(block)) {
-                world.setSpawnLocation(player.getLocation());
-                pendingSpawnSetting.remove(player.getUniqueId());
-                player.sendMessage("§a[SpyCore] World spawn location has been set to your current position.");
-            }
-        }
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -103,14 +79,7 @@ public class WorldSettingsListener implements Listener {
 
     @EventHandler
     public void onWorldChange(PlayerChangedWorldEvent event) {
-        Player player = event.getPlayer();
-        applyFlySetting(player);
-        
-        // Check if we need to track this player for spawn setting in the new world
-        String alias = worldManager.getAliasForWorld(player.getWorld());
-        if (alias != null && player.getLocation().getY() >= 249) {
-            pendingSpawnSetting.add(player.getUniqueId());
-        }
+        applyFlySetting(event.getPlayer());
     }
 
     @EventHandler
@@ -131,7 +100,19 @@ public class WorldSettingsListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPVP(EntityDamageByEntityEvent event) {
-        if (!(event.getEntity() instanceof Player victim) || !(event.getDamager() instanceof Player attacker)) return;
+        if (!(event.getEntity() instanceof Player victim)) return;
+
+        Player attacker = null;
+        if (event.getDamager() instanceof Player directAttacker) {
+            attacker = directAttacker;
+        } else if (event.getDamager() instanceof Projectile projectile) {
+            ProjectileSource shooter = projectile.getShooter();
+            if (shooter instanceof Player shooterPlayer) {
+                attacker = shooterPlayer;
+            }
+        }
+
+        if (attacker == null) return;
 
         World world = victim.getWorld();
         String alias = worldManager.getAliasForWorld(world);

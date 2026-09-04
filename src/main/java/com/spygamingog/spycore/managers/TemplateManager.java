@@ -79,10 +79,8 @@ public class TemplateManager {
         String containerPath = (container == null || container.isEmpty()) ? "" : container + "/";
         String fullPath = "spycore-worlds/" + containerPath + worldName;
         
-        World world = Bukkit.getWorld(fullPath);
-        if (world != null) {
-            Bukkit.unloadWorld(world, false);
-        }
+        // Remove from WorldManager and worlds.yml
+        plugin.getWorldManager().removeWorld(worldName);
 
         File worldDir = new File(plugin.getServer().getWorldContainer(), fullPath);
         try {

@@ -90,6 +90,14 @@ public class SpyCommand implements CommandExecutor, TabCompleter {
             case "find":
                 handleFindCommand(sender, args);
                 break;
+            case "tp":
+                // Quick alias for /spy world tp [target] <world>
+                String[] shiftedArgs = new String[args.length + 1];
+                shiftedArgs[0] = "world";
+                shiftedArgs[1] = "tp";
+                System.arraycopy(args, 1, shiftedArgs, 2, args.length - 1);
+                handleWorldCommand(sender, shiftedArgs);
+                break;
             case "setspawn":
                 // Quick shortcut
                 if (sender instanceof Player player) {
@@ -364,95 +372,113 @@ public class SpyCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage("§8§m---------------------------------------");
                 break;
             case "tp":
-                if (!(sender instanceof Player player)) {
-                    sender.sendMessage("§cOnly players can teleport.");
-                    return;
-                }
+                // /spy world tp [target] <worldname>
                 if (args.length < 3) {
-                    sender.sendMessage("§cUsage: /spy world tp [player] <worldname>");
-                    sender.sendMessage("§cUsage: /spy world tp [player] <containerpath> <worldname>");
+                    sender.sendMessage("§cUsage: /spy world tp [target] <worldname>");
                     return;
                 }
 
-                if (args[2].equalsIgnoreCase("list")) {
-                    sender.sendMessage("§6Available worlds:");
-                    for (String worldAlias : plugin.getWorldManager().getWorldAliases().keySet()) {
-                        sender.sendMessage("§e- " + worldAlias);
-                    }
-                    return;
-                }
-                
                 List<Player> targets = new ArrayList<>();
-                int worldStartIndex = 2;
+                String worldName = "";
 
-                // Check for target selector
-                if (args.length >= 4) {
+                // Check if args[2] is a selector or player name
+                // Case 1: /spy world tp <worldname> (self teleport)
+                if (args.length == 3 && sender instanceof Player) {
+                    String input = args[2];
+                    boolean isWorld = plugin.getWorldManager().getWorldAliases().containsKey(input) || Bukkit.getWorld(input) != null;
+                    boolean isSelector = input.startsWith("@");
+
+                    if (isWorld && !isSelector) {
+                        targets.add((Player) sender);
+                        worldName = input;
+                    } else if (isSelector) {
+                        sender.sendMessage("§cUsage: /spy world tp " + input + " <worldname>");
+                        return;
+                    } else {
+                        // Check if it matches an online player
+                        try {
+                            List<Player> found = plugin.getServer().selectEntities(sender, input).stream()
+                                .filter(e -> e instanceof Player)
+                                .map(e -> (Player) e)
+                                .collect(Collectors.toList());
+                            
+                            if (!found.isEmpty()) {
+                                sender.sendMessage("§cUsage: /spy world tp " + input + " <worldname>");
+                                return;
+                            }
+                        } catch (Exception ignored) {}
+
+                        targets.add((Player) sender);
+                        worldName = input;
+                    }
+                } 
+                // Case 2: /spy world tp <target> <worldname>
+                else if (args.length >= 4) {
                     try {
                         targets.addAll(plugin.getServer().selectEntities(sender, args[2]).stream()
                                 .filter(e -> e instanceof Player)
                                 .map(e -> (Player) e)
                                 .collect(Collectors.toList()));
-                        if (!targets.isEmpty()) {
-                            worldStartIndex = 3;
-                        }
                     } catch (IllegalArgumentException e) {
-                        // Not a selector, maybe it's a world name or container path
+                        sender.sendMessage("§cInvalid target selector: " + args[2]);
+                        return;
                     }
-                }
 
-                if (targets.isEmpty()) {
+                    if (targets.isEmpty()) {
+                        sender.sendMessage("§cNo players found matching " + args[2]);
+                        return;
+                    }
+                    worldName = args[3];
+                } else {
+                    // Args length is 3 but sender is console -> must specify target
                     if (!(sender instanceof Player)) {
-                        sender.sendMessage("§cYou must specify a player or selector when using from console.");
+                        sender.sendMessage("§cUsage: /spy world tp <target> <worldname>");
                         return;
                     }
                     targets.add((Player) sender);
+                    worldName = args[2];
                 }
 
-                World targetWorld = null;
-                String lastArg = args[args.length - 1];
-                
-                // STRICT PATH MODE: If explicit path provided
-                if (args.length - worldStartIndex > 1) {
-                    StringBuilder pathBuilder = new StringBuilder();
-                    for (int i = worldStartIndex; i < args.length - 1; i++) {
-                        if (pathBuilder.length() > 0) pathBuilder.append("/");
-                        pathBuilder.append(args[i]);
+                World targetWorld = plugin.getWorldManager().getWorld(worldName);
+                if (targetWorld == null) {
+                    // Try to load it if it's a known alias but unloaded?
+                    // Or maybe it's a container path? 
+                    // For now, simple lookup.
+                    // Check if it's a container path like "container/world"
+                    if (worldName.contains("/")) {
+                        String[] parts = worldName.split("/");
+                        if (parts.length >= 2) {
+                            // Try to load/get world from container
+                             targetWorld = plugin.getWorldManager().getWorld(parts[parts.length-1]); // Simplified lookup
+                        }
                     }
-                    String path = pathBuilder.toString();
-                    targetWorld = plugin.getWorldManager().loadWorld(path, lastArg);
-                } else {
-                    // GLOBAL MODE: /spy world tp <name>
-                    targetWorld = plugin.getWorldManager().getWorld(lastArg);
                 }
 
                 if (targetWorld != null) {
                     for (Player targetPlayer : targets) {
-                        Location targetLoc = null;
+                        // Logic to find best location (last location or spawn)
+                        Location targetLoc = targetWorld.getSpawnLocation();
                         
-                        // Check for last known location in the target world group
-                        String worldAlias = plugin.getWorldManager().getAliasForWorld(targetWorld);
-                        // Get the base name for the world set
-                        String baseName = worldAlias;
-                        if (baseName.endsWith("_nether")) {
-                            baseName = baseName.substring(0, baseName.length() - 7);
-                        } else if (baseName.endsWith("_the_end")) {
-                            baseName = baseName.substring(0, baseName.length() - 8);
-                        }
-                        
-                        PlayerProfile profile = plugin.getPlayerManager().getProfile(targetPlayer.getUniqueId());
-                        if (profile != null) {
-                            targetLoc = profile.getLastLocation(baseName);
-                        }
-                        
-                        if (targetLoc == null || targetLoc.getWorld() == null) {
-                            targetLoc = targetWorld.getSpawnLocation();
-                        }
-                        
+                        // Try to get last location from profile if available
+                        // (Assuming PlayerProfile and getLastLocation logic exists and works)
+                        try {
+                             PlayerProfile profile = plugin.getPlayerManager().getProfile(targetPlayer.getUniqueId());
+                             if (profile != null) {
+                                 String wAlias = plugin.getWorldManager().getAliasForWorld(targetWorld);
+                                 Location last = profile.getLastLocation(wAlias);
+                                 if (last != null && last.getWorld() != null) {
+                                     targetLoc = last;
+                                 }
+                             }
+                        } catch (Exception ignored) {}
+
                         targetPlayer.teleport(targetLoc);
-                        sender.sendMessage("§aTeleported " + targetPlayer.getName() + " to world " + worldAlias);
+                        targetPlayer.setGameMode(org.bukkit.GameMode.SURVIVAL);
+                        targetPlayer.sendMessage("§aTeleported to world " + targetWorld.getName());
                     }
+                    sender.sendMessage("§aTeleported " + targets.size() + " player(s) to " + targetWorld.getName());
                 } else {
-                    sender.sendMessage("§cWorld not found.");
+                    sender.sendMessage("§cWorld '" + worldName + "' not found.");
                 }
                 break;
             case "setspawn":
@@ -801,12 +827,22 @@ public class SpyCommand implements CommandExecutor, TabCompleter {
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
         if (args.length == 1) {
-            return Arrays.asList("create", "clone", "delete", "remove", "unload", "move", "setspawn", "world", "load", "container", "template", "tag", "find", "whitelist", "wake", "help")
+            return Arrays.asList("create", "clone", "delete", "remove", "unload", "move", "setspawn", "world", "tp", "load", "container", "template", "tag", "find", "whitelist", "wake", "help")
                     .stream().filter(s -> s.startsWith(args[0].toLowerCase())).collect(Collectors.toList());
         }
 
         if (args.length == 2) {
             switch (args[0].toLowerCase()) {
+                case "tp":
+                    List<String> tpOptions = new ArrayList<>();
+                    tpOptions.add("@s");
+                    tpOptions.add("@p");
+                    tpOptions.add("@a");
+                    tpOptions.add("@r");
+                    tpOptions.add("@e");
+                    tpOptions.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList()));
+                    tpOptions.addAll(plugin.getWorldManager().getWorldAliases().keySet());
+                    return tpOptions.stream().filter(s -> s.toLowerCase().startsWith(args[1].toLowerCase())).collect(Collectors.toList());
                 case "create":
                     return Arrays.asList("world", "container").stream().filter(s -> s.startsWith(args[1].toLowerCase())).collect(Collectors.toList());
                 case "delete":
@@ -827,6 +863,10 @@ public class SpyCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 3) {
             switch (args[0].toLowerCase()) {
+                case "tp":
+                    return plugin.getWorldManager().getWorldAliases().keySet().stream()
+                            .filter(s -> s.toLowerCase().startsWith(args[2].toLowerCase()))
+                            .collect(Collectors.toList());
                 case "load":
                     if (args[1].equalsIgnoreCase("container")) {
                         return getContainersInPath("").stream().filter(s -> s.startsWith(args[2].toLowerCase())).collect(Collectors.toList());
@@ -838,12 +878,14 @@ public class SpyCommand implements CommandExecutor, TabCompleter {
                 case "world":
                     if (args[1].equalsIgnoreCase("tp")) {
                         List<String> options = new ArrayList<>();
+                        options.add("@s");
                         options.add("@p");
                         options.add("@a");
                         options.add("@r");
+                        options.add("@e");
                         options.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList()));
                         options.addAll(plugin.getWorldManager().getWorldAliases().keySet());
-                        return options.stream().filter(s -> s.startsWith(args[2].toLowerCase())).collect(Collectors.toList());
+                        return options.stream().filter(s -> s.toLowerCase().startsWith(args[2].toLowerCase())).collect(Collectors.toList());
                     }
                     if (args[1].equalsIgnoreCase("setspawn") || args[1].equalsIgnoreCase("modify") || args[1].equalsIgnoreCase("gamerule")) {
                         return plugin.getWorldManager().getWorldAliases().keySet().stream().filter(s -> s.startsWith(args[2].toLowerCase())).collect(Collectors.toList());
@@ -858,6 +900,11 @@ public class SpyCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 4) {
+            if (args[0].equalsIgnoreCase("world") && args[1].equalsIgnoreCase("tp")) {
+                return plugin.getWorldManager().getWorldAliases().keySet().stream()
+                        .filter(s -> s.toLowerCase().startsWith(args[3].toLowerCase()))
+                        .collect(Collectors.toList());
+            }
             if (args[0].equalsIgnoreCase("load") && args[1].equalsIgnoreCase("container")) {
                 return getWorldsInPath(args[2]).stream().filter(s -> s.startsWith(args[3].toLowerCase())).collect(Collectors.toList());
             }

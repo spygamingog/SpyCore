@@ -3,29 +3,50 @@ package com.spygamingog.spycore;
 import com.spygamingog.spycore.api.DataService;
 import com.spygamingog.spycore.commands.SpyCommand;
 import com.spygamingog.spycore.managers.*;
+import com.spygamingog.spycore.placeholders.SpyCoreExpansion;
 import com.spygamingog.spycore.services.HologramService;
 import com.spygamingog.spycore.services.YamlDataService;
-import lombok.Getter;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class SpyCore extends JavaPlugin {
 
-    @Getter
     private static SpyCore instance;
 
-    @Getter
+    public static SpyCore getInstance() {
+        return instance;
+    }
+
     private WorldManager worldManager;
-    @Getter
     private PlayerManager playerManager;
-    @Getter
     private ServiceManager serviceManager;
-    @Getter
     private TemplateManager templateManager;
-    @Getter
     private MetadataManager metadataManager;
-    @Getter
     private PacketManager packetManager;
+
+    public WorldManager getWorldManager() {
+        return worldManager;
+    }
+
+    public PlayerManager getPlayerManager() {
+        return playerManager;
+    }
+
+    public ServiceManager getServiceManager() {
+        return serviceManager;
+    }
+
+    public TemplateManager getTemplateManager() {
+        return templateManager;
+    }
+
+    public MetadataManager getMetadataManager() {
+        return metadataManager;
+    }
+
+    public PacketManager getPacketManager() {
+        return packetManager;
+    }
 
     @Override
     public void onEnable() {
@@ -53,10 +74,22 @@ public final class SpyCore extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new com.spygamingog.spycore.listeners.WorldSettingsListener(this), this);
         getServer().getPluginManager().registerEvents(new com.spygamingog.spycore.listeners.WorldIsolationListener(this), this);
 
+        // Schedule automated world hibernation checker every 60 seconds (1200 ticks)
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            if (this.worldManager != null) {
+                this.worldManager.checkHibernation();
+            }
+        }, 1200L, 1200L);
+
         // Load data
         this.playerManager.initialize();
 
-        getLogger().info("SpyCore has been enabled!");
+        if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            new com.spygamingog.spycore.placeholders.SpyCoreExpansion(this).register();
+            getLogger().info("PlaceholderAPI expansion registered!");
+        }
+
+        getLogger().info("SpyCore v" + getDescription().getVersion() + " has been enabled!");
     }
 
     @Override

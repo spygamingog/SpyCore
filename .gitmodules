@@ -1,0 +1,6 @@
+[submodule "SpyInventories"]
+	path = SpyInventories
+	url = https://github.com/spygamingog/SpyInventories.git
+[submodule "SpyNetherPortals"]
+	path = SpyNetherPortals
+	url = https://github.com/spygamingog/SpyNetherPortals.git
