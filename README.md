@@ -3,7 +3,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Paper%20%2F%20Purpur-blue)](https://papermc.io)
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.21%2B-green)](https://papermc.io)
 [![Java](https://img.shields.io/badge/Java-21%2B-orange)](https://www.oracle.com/java/)
-[![License](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE)
+[![License](https://img.shields.io/badge/License-CC_BY--NC--SA_4.0-lightgrey)](LICENSE)
 
 SpyCore is a multi-world management plugin for Paper and Purpur (1.21+).
 
@@ -135,4 +135,4 @@ String state = SpyAPI.getWorldTag(arena, "game_state");
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0)](LICENSE).

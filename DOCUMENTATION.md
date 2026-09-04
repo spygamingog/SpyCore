@@ -256,3 +256,12 @@ Listen to SpyCore lifecycle events using standard Bukkit `@EventHandler`:
 |---|---|---|
 | `%spycore_world_name%` | `spycore-worlds/Bedwars/Solo1` | Full technical world name / path. |
 | `%spycore_world_alias%` | `Solo1` | Clean user-facing alias of the player's current world. |
+
+---
+
+## 10. License
+
+SpyCore and its official companion plugins ([SpyInventories](https://github.com/spygamingog/SpyInventories), [SpyNetherPortals](https://github.com/spygamingog/SpyNetherPortals)) are licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0)**.
+- **Attribution**: You must give appropriate credit to SpyGamingOG.
+- **NonCommercial**: You may not use the material for commercial purposes or monetization.
+- **ShareAlike**: If you remix, transform, or build upon the material, you must distribute your contributions under the same license.
