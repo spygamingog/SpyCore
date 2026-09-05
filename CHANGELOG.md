@@ -2,6 +2,12 @@
 
 All notable changes to the SpyCore project will be documented in this file.
 
+## [1.1.2] - 2026-09-06
+
+### Changed & Streamlined
+- **Modular Inventory Separation**: Removed duplicate player inventory serialization, loading, and `<group>.yml` generation from `PlayerManager` and `PlayerProfile`. `SpyCore` now strictly manages world VFS lifecycles, gamerules, and navigation profiles (`last_locations` in `profile.yml`).
+- **Authoritative Companion Delegation**: Dedicated multi-world inventory management and dimensional inventory sync are now cleanly delegated to `SpyInventories` (or standard vanilla single-inventory behavior if SpyInventories is not present).
+
 ## [1.1.1] - 2026-09-05
 
 ### Fixed

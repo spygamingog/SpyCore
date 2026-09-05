@@ -80,66 +80,6 @@ public class PlayerProfile {
         return null;
     }
 
-    public void setInventory(String worldSet, org.bukkit.inventory.ItemStack[] contents) {
-        Map<String, Object> inventories = (Map<String, Object>) data.computeIfAbsent("inventories", k -> new HashMap<String, Object>());
-        inventories.put(worldSet, contents);
-    }
-
-    public org.bukkit.inventory.ItemStack[] getInventory(String worldSet) {
-        Map<String, Object> inventories = (Map<String, Object>) data.get("inventories");
-        if (inventories == null) return null;
-        Object val = inventories.get(worldSet);
-        if (val instanceof java.util.List) {
-            return ((java.util.List<org.bukkit.inventory.ItemStack>) val).toArray(new org.bukkit.inventory.ItemStack[0]);
-        }
-        return (org.bukkit.inventory.ItemStack[]) val;
-    }
-
-    public void setArmor(String worldSet, org.bukkit.inventory.ItemStack[] contents) {
-        Map<String, Object> armor = (Map<String, Object>) data.computeIfAbsent("armor", k -> new HashMap<String, Object>());
-        armor.put(worldSet, contents);
-    }
-
-    public org.bukkit.inventory.ItemStack[] getArmor(String worldSet) {
-        Map<String, Object> armor = (Map<String, Object>) data.get("armor");
-        if (armor == null) return null;
-        Object val = armor.get(worldSet);
-        if (val instanceof java.util.List) {
-            return ((java.util.List<org.bukkit.inventory.ItemStack>) val).toArray(new org.bukkit.inventory.ItemStack[0]);
-        }
-        return (org.bukkit.inventory.ItemStack[]) val;
-    }
-
-    public void setEnderChest(String worldSet, org.bukkit.inventory.ItemStack[] contents) {
-        Map<String, Object> enderChests = (Map<String, Object>) data.computeIfAbsent("ender_chests", k -> new HashMap<String, Object>());
-        enderChests.put(worldSet, contents);
-    }
-
-    public org.bukkit.inventory.ItemStack[] getEnderChest(String worldSet) {
-        Map<String, Object> enderChests = (Map<String, Object>) data.get("ender_chests");
-        if (enderChests == null) return null;
-        Object val = enderChests.get(worldSet);
-        if (val instanceof java.util.List) {
-            return ((java.util.List<org.bukkit.inventory.ItemStack>) val).toArray(new org.bukkit.inventory.ItemStack[0]);
-        }
-        return (org.bukkit.inventory.ItemStack[]) val;
-    }
-
-    public void setStats(String worldSet, double health, int food, int level, float exp) {
-        Map<String, Object> stats = (Map<String, Object>) data.computeIfAbsent("stats", k -> new HashMap<String, Object>());
-        Map<String, Object> worldStats = new HashMap<>();
-        worldStats.put("health", health);
-        worldStats.put("food", food);
-        worldStats.put("level", level);
-        worldStats.put("exp", exp);
-        stats.put(worldSet, worldStats);
-    }
-
-    public Map<String, Object> getStats(String worldSet) {
-        Map<String, Object> stats = (Map<String, Object>) data.get("stats");
-        return stats != null ? (Map<String, Object>) stats.get(worldSet) : null;
-    }
-
     public Object getData(String key) {
         return data.get(key);
     }

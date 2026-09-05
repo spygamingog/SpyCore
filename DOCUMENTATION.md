@@ -190,8 +190,8 @@ worlds:
 ```
 
 ### `plugins/SpyCore/players/<UUID>/`
-- **`profile.yml`**: Contains player last locations per world group (`last_locations.<group>`).
-- **`<group>.yml`**: Stores inventory contents, armor, ender chest, health, level, exp, active potion effects, and gamemode for that world dimension group.
+- **`profile.yml`**: Contains player last coordinates per world alias (`last_locations.<alias>`), ensuring `/spy world tp` accurately returns players to their previous position in that world.
+- *(Multi-world inventory, armor, ender chest, and stats separation are managed authoritatively by **SpyInventories** under `plugins/SpyInventories/players/<UUID>/<group>.yml`)*.
 
 ---
 
@@ -203,7 +203,7 @@ Add SpyCore to your plugin's `pom.xml`:
 <dependency>
     <groupId>com.spygamingog</groupId>
     <artifactId>spycore</artifactId>
-    <version>1.1.1</version>
+    <version>1.1.2</version>
     <scope>provided</scope>
 </dependency>
 ```
